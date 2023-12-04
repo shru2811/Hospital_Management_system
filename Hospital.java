@@ -1,3 +1,5 @@
+import java.sql.*;
+import java.util.ArrayList;
 import java.util.Formatter;
 import javax.print.Doc;
 import java.nio.ByteBuffer;
@@ -8,14 +10,14 @@ class Person{// Base class person that includes attributes and methods common fo
     String name, gender;
     long phn;
     void createPerson(){//Create person object
-        System.out.println("****************Fill your details to register yourself****************");
-        System.out.print("Enter your name: ");
+        System.out.println("****************Fill your details****************");
+        System.out.print("Enter name: ");
         this.name = sc.nextLine();
 
-        System.out.print("Enter your phone number: ");
+        System.out.print("Enter phone number: ");
         this.phn = sc.nextLong();
 
-        System.out.print("Enter your Gender(F/M/O): ");
+        System.out.print("Enter Gender(F/M/O): ");
         this.gender = sc.next();
 
     }
@@ -27,19 +29,33 @@ class Person{// Base class person that includes attributes and methods common fo
     }
 }
 class Patient extends Person{//patient class to inherit person and adding some more attributes
-    static Patient[] patients = new Patient[20];
-
+//    static Patient[] patients = new Patient[20];
+static ArrayList<Patient> patients = new ArrayList<>();
     Scanner sc= new Scanner(System.in);
     int Pid=1000;
     Boolean ins;
     static int count = 0;
     void createPatient(){//Create patient object
-        super.createPerson();
-        System.out.print("Do you have an Insurance (Y=true/N=false): ");
-        this.ins = sc.nextBoolean();
-        patients[count] = this;
-        count++;
-        this.Pid+=count;
+        try{
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/hospital", "root", "root");
+            System.out.println("Patient Details: ");
+            super.createPerson();
+            System.out.print("Do you have an Insurance (Y=true/N=false): ");
+            this.ins = sc.nextBoolean();
+            patients.add(this);
+            count++;
+            this.Pid+=count;
+            PreparedStatement stm = con.prepareStatement("INSERT INTO Patients VALUES(?,?,?,?,?)");
+            stm.setInt(1,this.Pid);
+            stm.setString(2,this.name);
+            stm.setLong(3,this.phn);
+            stm.setString(4,this.gender);
+            stm.setBoolean(5,this.ins);
+            stm.executeUpdate();
+            con.close();
+        }catch(Exception e){
+            System.out.println(e);
+        }
     }
     void getDetail(){
         System.out.println("Patient's ID: "+Pid);
@@ -49,7 +65,8 @@ class Patient extends Person{//patient class to inherit person and adding some m
 }
 
 class Doctor extends Person{//Inheriting person in doctor class
-    static Doctor[] doctors = new Doctor[20];
+//    static Doctor[] doctors = new Doctor[20];
+static ArrayList<Doctor> doctors = new ArrayList<>();
     Scanner sc= new Scanner(System.in);
     int Did=2000;
     String splz;
@@ -57,16 +74,31 @@ class Doctor extends Person{//Inheriting person in doctor class
     static int count = 0;
 
     void createDoctor(){// creating doctor object
-        super.createPerson();
-        System.out.print("Enter your Speciallization: ");
-        this.splz = sc.nextLine();
+        try{
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/hospital", "root", "root");
+            System.out.println("Doctor's Details: ");
+            super.createPerson();
+            System.out.print("Enter Speciallization: ");
+            this.splz = sc.nextLine();
 
-        System.out.print("Enter your Consultation fees: ");
-        this.fee = sc.nextInt();
+            System.out.print("Enter Consultation fees: ");
+            this.fee = sc.nextInt();
 
-        doctors[count] = this;
-        count++;
-        this.Did+=count;
+            doctors.add(this);
+            count++;
+            this.Did+=count;
+            PreparedStatement stm = con.prepareStatement("INSERT INTO Doctors VALUES(?,?,?,?,?,?)");
+            stm.setInt(1,this.Did);
+            stm.setString(2,this.name);
+            stm.setLong(3,this.phn);
+            stm.setString(4,this.gender);
+            stm.setString(5,this.splz);
+            stm.setInt(6,this.fee);
+            stm.executeUpdate();
+            con.close();
+        }catch(Exception e){
+            System.out.println(e);
+        }
     }
     void getDetail(){
         System.out.println("Doctor's ID: "+Did);
@@ -77,19 +109,19 @@ class Doctor extends Person{//Inheriting person in doctor class
 }
 class Appointment {// class for booking appointments
     int appId = 3001;
-    private Doctor doctor;
-    private Patient patient;
+    private int docID;
+    private int patID;
     private String date;
     private String time;
-    static Appointment[] appointments = new Appointment[30];
-
+//    static Appointment[] appointments = new Appointment[30];
+static ArrayList<Appointment> appointments = new ArrayList<>();
     static int countAppointments = 0;
-    public Appointment(Doctor doctor, Patient patient, String date, String time){   //constructor booking appointments
-        this.doctor = doctor;
-        this.patient = patient;
+    public Appointment(int docId, int patId, String date, String time){   //constructor booking appointments
+        this.docID = docId;
+        this.patID = patId;
         this.date = date;
         this.time = time;
-        appointments[countAppointments] = this;
+        appointments.add(this);
         appId+=countAppointments;
         countAppointments++;
 
@@ -97,35 +129,48 @@ class Appointment {// class for booking appointments
 
     public static void showAppointments(){//function to show appointments booked till now
         //this will show all the appointments of all the doctors
-        int size = appointments.length;
+        int size = appointments.size();
+        if(size==0){
+            System.out.println("No Appointments for today");
+            return;
+        }
         System.out.printf("%20s %20s %20s %20s %20s \n","Appointment ID","Doctor's name","patient's name", "Date" ,"Time");
         for(int i=0;i<countAppointments;i++){
-            System.out.printf("%20s %20s %20s %20s %20s\n \n",appointments[i].appId,appointments[i].doctor.name,appointments[i].patient.name,appointments[i].date,appointments[i].time);
+            System.out.printf("%20s %20s %20s %20s %20s\n \n",appointments.get(i).appId,appointments.get(i).docID,appointments.get(i).patID,appointments.get(i).date,appointments.get(i).time);
         }
     }
-    public static void showDoctorApp(String docName) {//show appointments of specified doctor
+    public static void showDoctorApp(int docId) {//show appointments of specified doctor
+        if(countAppointments==0){
+            System.out.println("No Appointments");
+        }
+        Boolean flag = false;
         System.out.printf("%20s %20s %20s %20s","Doctor's name","patient's name", "Date" ,"Time");
         for(int i=0;i<countAppointments;i++){
-            if(appointments[i].doctor.name.equalsIgnoreCase(docName))
-                System.out.printf("%20s %20s %20s %20s\n \n",appointments[i].doctor.name,appointments[i].patient.name,appointments[i].date,appointments[i].time);
+            if(appointments.get(i).docID==docId){
+                System.out.printf("%20s %20s %20s %20s %20s\n \n",appointments.get(i).appId,appointments.get(i).docID,appointments.get(i).patID,appointments.get(i).date,appointments.get(i).time);
+                flag=true;
+            }
         }
+        if(!flag)
+            System.out.println("No Appointments for this Id");
     }
 
-    public static void showPatientApp(String patName){// show appointments of specified patient
+    public static void showPatientApp(int patId){// show appointments of specified patient
         boolean found = false;
         int ind=-1;
         for(int i=0;i<countAppointments;i++){
-            if(appointments[i].patient.name.equalsIgnoreCase(patName)){
+            if(appointments.get(i).patID==patId){
                 ind = i;
                 found=true;
             }
         }
         if(found){
             System.out.printf("%20s %20s %20s %20s \n","Doctor's name","patient's name", "Date" ,"Time");
-            System.out.printf("%20s %20s %20s %20s\n \n",appointments[ind].doctor.name,appointments[ind].patient.name,appointments[ind].date,appointments[ind].time);
+            System.out.printf("%20s %20s %20s %20s %20s\n \n",appointments.get(ind).appId,appointments.get(ind).docID,appointments.get(ind).patID,appointments.get(ind).date,appointments.get(ind).time);
+
         }
         else{
-            System.out.println("No such Patient in records");
+            System.out.println("No such appointments scheduled for this patient");
         }
     }
 
@@ -134,36 +179,35 @@ class Appointment {// class for booking appointments
         int ind=0;
         boolean found = false;
         for(int i=0;i<countAppointments;i++){
-            if(appointments[i].appId == AppId){
+            if(appointments.get(i).appId == AppId){
                 ind =i;
                 found = true;
             }
         }
-        countAppointments--;
-        if(found) {
-            for (int i = ind; i < countAppointments - 1; i++) {
-                appointments[i] = appointments[i + 1];
-            }
-            appointments[countAppointments] = null;
-            System.out.println("Appointement Cancelled!");
+        if(found){
+            appointments.remove(ind);
+            countAppointments--;
+        }
+        else{
+            System.out.println("Appointment not found");
         }
     }
     public static void rescheApp(int id,String t, String d){//To Reschedule any appointment
         int ind=0;
         boolean found = false;
         for(int i=0;i<countAppointments;i++){
-            if(appointments[i].appId==id){
+            if(appointments.get(i).appId==id){
                 ind = i;
                 found = true;
-                appointments[i].time = t;
-                appointments[i].date = d;
+                appointments.get(i).time = t;
+                appointments.get(i).date = d;
                 break;
             }
         }
         if(found) {
             System.out.println("Re-Schedule done!");
-            System.out.printf("%20s %20s %20s %20s \n", "Doctor's name", "patient's name", "Date", "Time");
-            System.out.printf("%20s %20s %20s %20s \n\n", appointments[ind].doctor.name, appointments[ind].patient.name, appointments[ind].date, appointments[ind].time);
+            System.out.printf("%20s %20s %20s %20s \n", "Doctor's Id", "patient's Id", "Date", "Time");
+            System.out.printf("%20s %20s %20s %20s \n\n", appointments.get(ind).docID, appointments.get(ind).patID, appointments.get(ind).date, appointments.get(ind).time);
         }
         else{
             System.out.println("No records to ReSchedule for the given input");
@@ -178,8 +222,9 @@ public class Hospital {
         System.out.println("3: Get Doctor's List");
         System.out.println("4: Deny an Appointment");
         System.out.println("5: Reschedule Appointment");
-        System.out.println("6: Exit");
-        System.out.println("Press any key to switch to Patient's Portal");
+        System.out.println("6: Patients List");
+        System.out.println("7: Exit");
+        System.out.println("Press 0 to switch to Patient's Portal");
     }
 
     static void showPatMenu(){//menu driven options for Patient's portal
@@ -189,7 +234,48 @@ public class Hospital {
         System.out.println("4: Check Doctor's Details");
         System.out.println("5: Doctors Available for you");
         System.out.println("6: Exit");
-        System.out.println("Press any key to switch to Doctor's portal");
+        System.out.println("Press 0 to switch to Doctor's portal");
+    }
+    static void showPatList(){
+        try{
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/hospital", "root", "root");
+            System.out.printf("%20s %20s %20s %20s %20s \n","Patient's Id","patient's name", "Phone number" ,"Gender", "Insurance");
+            String selQuery = "select * from patients";
+            Statement stm = con.createStatement();
+            ResultSet rs = stm.executeQuery(selQuery);
+            while(rs.next()){
+                String col1 = Integer.toString(rs.getInt(1));
+                String col2 = rs.getString(2);
+                String col3 = Integer.toString(rs.getInt(3));
+                String col4 = rs.getString(4);
+                String col5 = Boolean.toString(rs.getBoolean(5));
+                System.out.printf("%20s %20s %20s %20s %20s \n",col1,col2, col3 ,col4, col5);
+            }
+            con.close();
+        }catch(Exception e){
+            System.out.println(e);
+        }
+    }
+    static void showDocList(){
+        try{
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/hospital", "root", "root");
+            System.out.printf("%20s %20s %20s %20s %20s %20s \n", "Doctor's ID","Doctor's name", "Phone number", "Gender", "Speciallization", "Consultation fees");
+            String selQuery = "select * from Doctors";
+            Statement stm = con.createStatement();
+            ResultSet rs = stm.executeQuery(selQuery);
+            while(rs.next()){
+                String col1 = Integer.toString(rs.getInt(1));
+                String col2 = rs.getString(2);
+                String col3 = Integer.toString(rs.getInt(3));
+                String col4 = rs.getString(4);
+                String col5 = rs.getString(5);
+                String col6 = Integer.toString(rs.getInt(6));
+                System.out.printf("%20s %20s %20s %20s %20s %20s\n",col1,col2, col3 ,col4, col5,col6);
+            }
+            con.close();
+        }catch(Exception e){
+            System.out.println(e);
+        }
     }
     static void docOperations() {//function contains The Menu Driven operations for doctor's portal
         Scanner sc = new Scanner(System.in);
@@ -202,25 +288,24 @@ public class Hospital {
                 case (1)://New Doctor joining Registeration
                     Doctor doc = new Doctor();
                     doc.createDoctor();
-                    Doctor[] arr = Doctor.doctors;
-                    System.out.printf("%20s %20s %20s %20s %20s \n", "Doctor's name", "Phone number", "Gender", "Speciallization", "Consultation fees");
-                    for (int i = 0; i < Doctor.count; i++)
-                        System.out.printf("%20s %20s %20s %20s %20s\n", arr[i].name, arr[i].phn, arr[i].gender, arr[i].splz, arr[i].fee);
+                    showDocList();
                     break;
                 case (2)://Scheduled Appointments for the day
                     Appointment.showAppointments();
                     break;
                 case (3)://Get Doctor's List
-                    Doctor[] arr1 = Doctor.doctors;
+                    ArrayList<Doctor> arr1 = Doctor.doctors;
                     if(Doctor.count==0){
                         System.out.println("no records");
                         break;
                     }
-                    System.out.printf("%20s %20s %20s %20s %20s \n", "Doctor's name", "Phone number", "Gender", "Speciallization", "Consultation fees");
-                    for (int i = 0; i < Doctor.count; i++)
-                        System.out.printf("%20s %20s %20s %20s %20s \n", arr1[i].name, arr1[i].phn, arr1[i].gender, arr1[i].splz, arr1[i].fee);
+                    showDocList();
                     break;
                 case (4)://Deny an Appointment
+                    if(Appointment.countAppointments==0){
+                        System.out.println("No appointments");
+                        break;
+                    }
                     System.out.println("These are the scheduled appointments");
                     Appointment.showAppointments();
                     System.out.print("Enter the Appointment ID: ");
@@ -229,6 +314,10 @@ public class Hospital {
                     break;
 
                 case (5)://Reschedule Appointment
+                    if(Appointment.countAppointments==0){
+                        System.out.println("No Appointments to re-Schedule");
+                        break;
+                    }
                     System.out.println("available appointments");
                     Appointment.showAppointments();
                     System.out.println("Enter App id: ");
@@ -239,7 +328,20 @@ public class Hospital {
                     String time = sc.next();
                     Appointment.rescheApp(id,time,date);
                     break;
-                case(6)://Exit
+                case(6):
+                    showPatList();
+                    break;
+                case(7)://Exit
+                    try{
+                        Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/hospital", "root", "root");
+                        Statement stm = con.createStatement();
+                        String selQuery = "delete from patients";
+                        String selQuery1 = "delete from doctors";
+                        stm.executeUpdate(selQuery);
+                        stm.executeUpdate(selQuery1);
+                    }catch(Exception e){
+                        System.out.println(e);
+                    }
                     System.exit(0);
                 default://switch to Patient's Portal
                     patOperations();
@@ -257,43 +359,54 @@ public class Hospital {
                     Patient pat = new Patient();
                     pat.createPatient();
                     System.out.println("Updated list of Patients");
-                    Patient[] ar = Patient.patients;
-                    System.out.printf("%20s %20s %20s %20s \n","Patient's Id","patient's name", "Phone number" ,"Gender", "Insurance");
-                    for (int i = 0; i < Patient.count; i++)
-                        System.out.printf("%20s %20s %20s %20s \n", ar[i].Pid, ar[i].name, ar[i].phn, ar[i].gender, ar[i].ins);
+                    showPatList();
                     break;
                 case (2)://Book Your Appointment
-                    Doctor doc = new Doctor();
-                    doc.createDoctor();
-                    Patient pat1 = new Patient();
-                    pat1.createPatient();
+//                    Doctor doc = new Doctor();
+//                    doc.createDoctor();
+//                    Patient pat1 = new Patient();
+//                    pat1.createPatient();
+                    if(Doctor.count==0){
+                        System.out.println("No Doctors available for appointment");
+                        break;
+                    }
+                    System.out.println("Doctors available: ");
+                    showDocList();
+                    System.out.println("Enter Patient ID: ");
+                    int id = sc.nextInt();
+                    System.out.println("Enter Doctor's ID for Appointment: ");
+                    int id1 = sc.nextInt();
                     String date, time;
                     System.out.print("Enter date: ");
                     date = sc.next();
                     System.out.print("Enter time: ");
                     time = sc.next();
-                    Appointment ap = new Appointment(doc,pat1,date,time);
+                    Appointment ap = new Appointment(id1,id,date,time);
                     Appointment.showAppointments();
                     break;
                 case (3)://Your Scheduled Appointments
-                    String name;
-                    System.out.print("enter patient's name: ");
-                    name = sc.next();
-                    Appointment.showPatientApp(name);
+                    System.out.print("enter patient's Id: ");
+                    int Id = sc.nextInt();
+                    Appointment.showPatientApp(Id);
                     break;
                 case (4)://Check Doctor's Details
+                    if(Doctor.count==0){
+                        System.out.println("No Doctor's available right now");
+                        break;
+                    }
                     System.out.println("Showing doctors list");
-                    Doctor[] arr = Doctor.doctors;
-                    System.out.printf("%20s %20s \n", "Doctor's id", "Doctor's name");
-                    for (int i = 0; i < Doctor.count; i++)
-                        System.out.printf("%20s %20s \n", arr[i].Did, arr[i].name);
+                    ArrayList<Doctor> arr = Doctor.doctors;
+//                    System.out.printf("%20s %20s \n", "Doctor's id", "Doctor's name");
+//                    for (int i = 0; i < Doctor.count; i++)
+//                        System.out.printf("%20s %20s \n", arr.get(i).Did, arr.get(i).name);
+                    showDocList();
                     System.out.println("which doctor's details you want enter id: ");
-                    int id = sc.nextInt();
+                    id = sc.nextInt();
                     boolean found = false;
                     for (int i = 0; i < Doctor.count; i++){
-                        if(arr[i].Did == id){
+                        if(arr.get(i).Did == id){
                             found = true;
-                            arr[i].getDetail();
+                            arr.get(i).getDetail();
                         }
                     }
                     if(!found){
@@ -305,12 +418,20 @@ public class Hospital {
                         System.out.println("No doctors available right now");
                         break;
                     }
-                    Doctor[] arr1 = Doctor.doctors;
-                    System.out.printf("%20s %20s %20s %20s \n", "Doctor's name", "Phone number", "Gender", "Speciallization", "Consultation fees");
-                    for (int i = 0; i < Doctor.count; i++)
-                        System.out.printf("%20s %20s %20s %20s \n", arr1[i].name, arr1[i].phn, arr1[i].gender, arr1[i].splz, arr1[i].fee);
+                   showDocList();
                     break;
+
                 case(6)://Exit
+                    try{
+                        Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/hospital", "root", "root");
+                        Statement stm = con.createStatement();
+                        String selQuery = "delete from patients";
+                        String selQuery1 = "delete from doctors";
+                        stm.execute(selQuery);
+                        stm.execute(selQuery1);
+                    }catch(Exception e){
+                        System.out.println(e);
+                    }
                     System.exit(0);
                 default://switch to Doctor's portal
                     docOperations();
@@ -318,6 +439,16 @@ public class Hospital {
         }
     }
     public static void main(String[] args) {
+        try{
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/hospital", "root", "root");
+            Statement stm = con.createStatement();
+            String selQuery = "delete from patients";
+            String selQuery1 = "delete from doctors";
+            stm.execute(selQuery);
+            stm.execute(selQuery1);
+        }catch(Exception e){
+            System.out.println(e);
+        }//this is to clear old data that causes abnormal result in new run.
         try{
         Scanner sc = new Scanner(System.in);
         System.out.println("********* Welcome to the Portal *********");
